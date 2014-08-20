@@ -15,8 +15,6 @@ import (
 	"time"
 )
 
-var port int = *flag.Int("p", 23456, "Port to listen.")
-
 func ParseJsonFile(dest interface{}, file string) error {
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -95,10 +93,12 @@ type Config struct {
 
 var _html string
 var _config Config
+var port int
 
 func main() {
 	flag.Parse()
 	ParseJsonFile(&_config, "config.json")
+	port = _config.Port
 	_html = strings.Replace(HTML_EXEC, "{port}", strconv.Itoa(port), -1)
 
 	http.HandleFunc("/", showCmdListPage)
