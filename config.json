@@ -1,0 +1,8 @@
+ {
+	"Port":80,
+ 	"Cmds":
+	[
+  		{"Text":"list file","Script":"c:/2.bat","Url":"http://localhost"},
+  		{"Text":"ping", "Script":"c:/1.bat","Url":"http://localhost"}
+	]
+}

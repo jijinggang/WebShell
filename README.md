@@ -7,7 +7,11 @@ Config Example
 --------------
 config.json
 
-    [
-      ["list file","ls /home"],
-      ["test", "echo test"]
-    ]
+    {
+		"port":80,
+     	"cmds":
+		[
+      		["list file","bash /home"],
+      		["test", "echo test"]
+    	]
+    }
