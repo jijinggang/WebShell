@@ -2,7 +2,7 @@
 	"Port":80,
  	"Cmds":
 	[
-  		{"Text":"list file","Script":"c:/2.bat","Url":"http://localhost"},
+  		{"Text":"build dev","Script":"D:/192.168.30.4/sanguo/code/client/tool/build_dev.bat","Url":"http://localhost"},
   		{"Text":"ping", "Script":"c:/1.bat","Url":"http://localhost"}
 	]
 }

@@ -9,7 +9,9 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -45,27 +47,52 @@ func GetPath(file string) string {
 	pos := strings.LastIndex(file, "/")
 	return file[0:pos]
 }
-func exec_cmd(id int, w io.Writer) {
+func WriteStringFile(file string, str string) (written int, err error) {
+	//确保创建目标目录
+	//CreateDir(file)
+	dst, err := os.Create(file)
+	if err != nil {
+		return
+	}
+	defer dst.Close()
+	return io.WriteString(dst, str)
+}
+func exec_cmd(id int, w *websocket.Conn) {
 	cmdCfg := &_config.Cmds[id]
 	if cmdCfg.Running {
-		w.Write([]byte("The script is running, please waitting ......."))
+		websocket.Message.Send(w, "The script is running, please waitting .......")
 		return
 	}
 	cmdCfg.Running = true
-	cmd := exec.Command(cmdCfg.Script)
+	strCmd := cmdCfg.Script
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		content, err := ioutil.ReadFile(cmdCfg.Script)
+		if err != nil {
+			websocket.Message.Send(w, err.Error())
+			return
+		}
+		strCmd = cmdCfg.Script + ".tmp" + strconv.Itoa(id) + ".bat"
+		WriteStringFile(strCmd, "@echo off \r\n chcp 65001 \r\n"+string(content))
+		defer os.Remove(strCmd)
+	}
+	cmd = exec.Command(strCmd)
+	cmd.Env = os.Environ()
 	cmd.Stdout = w
+
 	path := GetPath(cmdCfg.Script)
 	cmd.Dir = path
 
 	err := cmd.Start()
 	if err != nil {
-		fmt.Println("Exec Error:", err.Error())
+		websocket.Message.Send(w, err.Error())
+		return
 	}
 
 	cmd.Wait()
 	cmdCfg.Running = false
 	cmdCfg.LastRunTime = time.Now()
-	w.Write([]byte("\n---------------------\nRUN OVER"))
+	websocket.Message.Send(w, "\n---------------------\nRUN OVER")
 }
 
 func execAndRefreshCmdResult(ws *websocket.Conn) {
@@ -75,6 +102,8 @@ func execAndRefreshCmdResult(ws *websocket.Conn) {
 		websocket.Message.Send(ws, "Invalid Command.")
 		return
 	}
+
+	//ws.SetWriteDeadline(time.Now().Add(20 * time.Second))
 	exec_cmd(id, ws)
 }
 
@@ -127,15 +156,16 @@ function init() {
    var div = document.getElementById("msg");
    div.innerText =  "\n" + div.innerText;
    ws = new WebSocket("ws://localhost:{port}" + "/exec?id={id}");
+   ws.binaryType ="string";
    ws.onopen = function () {
     //div.innerText = "opened\n" + div.innerText;
 	//ws.send("ok");
    };
    ws.onmessage = function (e) {
-      div.innerText = div.innerText + e.data;
+      div.innerText = div.innerText + e.data + "\n";
    };
    ws.onclose = function (e) {
-      //div.innerText = "closed\n" + div.innerText;
+     // div.innerText = div.innerText + "closed";
    };
    //div.innerText = "init\n" + div.innerText;
 };
