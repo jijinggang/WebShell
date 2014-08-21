@@ -129,7 +129,6 @@ func main() {
 	ParseJsonFile(&_config, "config.json")
 	port = _config.Port
 	_html = strings.Replace(HTML_EXEC, "{port}", strconv.Itoa(port), -1)
-
 	http.HandleFunc("/", showCmdListPage)
 	http.HandleFunc("/cmd", showCmdResultInitPage)
 	http.Handle("/exec", websocket.Handler(execAndRefreshCmdResult))
@@ -185,7 +184,7 @@ const TMPL_MAIN = `
 	{{with .}}
 	{{range $k, $v := .}}
 	<tr>
-		<td><a href="/cmd?id={{$k}}">{{$v.Text}}</td>
+		<td><a href="/cmd?id={{$k}}" onclick="return confirm('Do you really run this script?');">{{$v.Text}}</td>
 		<td><a href="{{$v.Url}}">Download</td>
 		{{with $v.LastRunTime}}
 		<td>{{.}}</td>
