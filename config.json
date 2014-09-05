@@ -1,5 +1,6 @@
  {
-	"Port":80,
+	"WWWRoot": "c:/",
+	"Port":8000,
  	"Cmds":
 	[
   		{"Text":"build dev","Script":"D:/192.168.30.4/sanguo/code/client/tool/build_dev.bat","Url":"http://localhost"},

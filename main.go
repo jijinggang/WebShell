@@ -2,7 +2,6 @@ package main
 
 import (
 	"code.google.com/p/go.net/websocket"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"html/template"
@@ -17,15 +16,6 @@ import (
 	"time"
 )
 
-func ParseJsonFile(dest interface{}, file string) error {
-	content, err := ioutil.ReadFile(file)
-	if err != nil {
-		return err
-	}
-	err = json.Unmarshal(content, dest)
-	return err
-}
-
 var tmpl, _ = template.New("main").Parse(TMPL_MAIN)
 
 func showCmdListPage(w http.ResponseWriter, req *http.Request) {
@@ -37,26 +27,7 @@ func showCmdResultInitPage(w http.ResponseWriter, req *http.Request) {
 	html := strings.Replace(_html, "{id}", id, -1)
 	io.WriteString(w, html)
 }
-func FormatPath(path string) string {
-	path = strings.Replace(path, "\\", "/", -1)
-	path = strings.TrimRight(path, "/")
-	return path
-}
-func GetPath(file string) string {
-	file = FormatPath(file)
-	pos := strings.LastIndex(file, "/")
-	return file[0:pos]
-}
-func WriteStringFile(file string, str string) (written int, err error) {
-	//确保创建目标目录
-	//CreateDir(file)
-	dst, err := os.Create(file)
-	if err != nil {
-		return
-	}
-	defer dst.Close()
-	return io.WriteString(dst, str)
-}
+
 func exec_cmd(id int, w *websocket.Conn) {
 	cmdCfg := &_config.Cmds[id]
 	if cmdCfg.Running {
@@ -92,7 +63,9 @@ func exec_cmd(id int, w *websocket.Conn) {
 	cmd.Wait()
 	cmdCfg.Running = false
 	cmdCfg.LastRunTime = time.Now()
-	websocket.Message.Send(w, "\n---------------------\nRUN OVER")
+	websocket.Message.Send(w, "\n---------------------\nRUN OVER.......................")
+	websocket.Message.Send(w, "\nDownload Url:\n"+cmdCfg.Url)
+
 }
 
 func execAndRefreshCmdResult(ws *websocket.Conn) {
@@ -116,8 +89,9 @@ type Cmd struct {
 }
 
 type Config struct {
-	Port int
-	Cmds []Cmd
+	WWWRoot string
+	Port    int
+	Cmds    []Cmd
 }
 
 var _html string
@@ -129,11 +103,11 @@ func main() {
 	ParseJsonFile(&_config, "config.json")
 	port = _config.Port
 	_html = strings.Replace(HTML_EXEC, "{port}", strconv.Itoa(port), -1)
-	http.HandleFunc("/", showCmdListPage)
-	http.HandleFunc("/cmd", showCmdResultInitPage)
-	http.Handle("/exec", websocket.Handler(execAndRefreshCmdResult))
-
-	fmt.Printf("http://localhost:%d/\n", port)
+	http.HandleFunc("/run", showCmdListPage)
+	http.HandleFunc("/run/cmd", showCmdResultInitPage)
+	http.Handle("/run/exec", websocket.Handler(execAndRefreshCmdResult))
+	http.Handle("/", http.FileServer(http.Dir(_config.WWWRoot))) //use fileserver directly
+	fmt.Printf("http://localhost:%d/run\n", port)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 	if err != nil {
 		panic("ListenAndServe: " + err.Error())
@@ -153,8 +127,9 @@ function init() {
      ws = null;
    }
    var div = document.getElementById("msg");
+   var host = window.location.host
    div.innerText =  "\n" + div.innerText;
-   ws = new WebSocket("ws://localhost:{port}" + "/exec?id={id}");
+   ws = new WebSocket("ws://" + host + "/run/exec?id={id}");
    ws.binaryType ="string";
    ws.onopen = function () {
     //div.innerText = "opened\n" + div.innerText;
@@ -184,7 +159,7 @@ const TMPL_MAIN = `
 	{{with .}}
 	{{range $k, $v := .}}
 	<tr>
-		<td><a href="/cmd?id={{$k}}" onclick="return confirm('Do you really run this script?');">{{$v.Text}}</td>
+		<td><a href="/run/cmd?id={{$k}}" onclick="return confirm('Do you really run this script?');">{{$v.Text}}</td>
 		<td><a href="{{$v.Url}}">Download</td>
 		{{with $v.LastRunTime}}
 		<td>{{.}}</td>
