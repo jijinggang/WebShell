@@ -127,7 +127,7 @@ function init() {
      ws = null;
    }
    var div = document.getElementById("msg");
-   var host = window.location.host
+   var host = window.location.host;
    div.innerText =  "\n" + div.innerText;
    ws = new WebSocket("ws://" + host + "/run/exec?id={id}");
    ws.binaryType ="string";
