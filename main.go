@@ -1,7 +1,7 @@
 package main
 
 import (
-	"code.google.com/p/go.net/websocket"
+	//	"code.google.com/p/go.net/websocket"
 	"flag"
 	"fmt"
 	"html/template"
@@ -22,16 +22,21 @@ func showCmdListPage(w http.ResponseWriter, req *http.Request) {
 	tmpl.Execute(w, _config.Cmds)
 }
 
+/*
 func showCmdResultInitPage(w http.ResponseWriter, req *http.Request) {
 	id := req.FormValue("id")
 	html := strings.Replace(_html, "{id}", id, -1)
 	io.WriteString(w, html)
+}*/
+
+func writeString(w io.Writer, str string) {
+	w.Write([]byte(str))
 }
 
-func exec_cmd(id int, w *websocket.Conn) {
+func exec_cmd(id int, w io.Writer) {
 	cmdCfg := &_config.Cmds[id]
 	if cmdCfg.Running {
-		websocket.Message.Send(w, "The script is running, please waitting .......")
+		writeString(w, "The script is running, please waitting .......")
 		return
 	}
 	cmdCfg.Running = true
@@ -40,7 +45,7 @@ func exec_cmd(id int, w *websocket.Conn) {
 	if runtime.GOOS == "windows" {
 		content, err := ioutil.ReadFile(cmdCfg.Script)
 		if err != nil {
-			websocket.Message.Send(w, err.Error())
+			writeString(w, err.Error())
 			return
 		}
 		strCmd = cmdCfg.Script + ".tmp" + strconv.Itoa(id) + ".bat"
@@ -56,28 +61,25 @@ func exec_cmd(id int, w *websocket.Conn) {
 
 	err := cmd.Start()
 	if err != nil {
-		websocket.Message.Send(w, err.Error())
+		writeString(w, err.Error())
 		return
 	}
 
 	cmd.Wait()
 	cmdCfg.Running = false
 	cmdCfg.LastRunTime = time.Now()
-	websocket.Message.Send(w, "\n---------------------\nRUN OVER.......................")
-	websocket.Message.Send(w, "\nDownload Url:\n"+cmdCfg.Url)
+	writeString(w, "\n---------------------\nRUN OVER.......................")
+	writeString(w, "\nDownload Url:\n"+cmdCfg.Url)
 
 }
 
-func execAndRefreshCmdResult(ws *websocket.Conn) {
-	req := ws.Request()
+func execAndRefreshCmdResult(w http.ResponseWriter, req *http.Request) {
 	id, _ := strconv.Atoi(req.FormValue("id"))
 	if id >= len(_config.Cmds) {
-		websocket.Message.Send(ws, "Invalid Command.")
+		writeString(w, "Invalid Command.")
 		return
 	}
-
-	//ws.SetWriteDeadline(time.Now().Add(20 * time.Second))
-	exec_cmd(id, ws)
+	exec_cmd(id, w)
 }
 
 type Cmd struct {
@@ -104,8 +106,9 @@ func main() {
 	port = _config.Port
 	_html = strings.Replace(HTML_EXEC, "{port}", strconv.Itoa(port), -1)
 	http.HandleFunc("/run", showCmdListPage)
-	http.HandleFunc("/run/cmd", showCmdResultInitPage)
-	http.Handle("/run/exec", websocket.Handler(execAndRefreshCmdResult))
+	//http.HandleFunc("/run/cmd", showCmdResultInitPage)
+	//http.Handle("/run/cmd", websocket.Handler(execAndRefreshCmdResult))
+	http.HandleFunc("/run/cmd", execAndRefreshCmdResult)
 	http.Handle("/", http.FileServer(http.Dir(_config.WWWRoot))) //use fileserver directly
 	fmt.Printf("http://localhost:%d/run\n", port)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
@@ -159,7 +162,7 @@ const TMPL_MAIN = `
 	{{with .}}
 	{{range $k, $v := .}}
 	<tr>
-		<td><a href="/run/cmd?id={{$k}}" onclick="return confirm('Do you really run this script?');">{{$v.Text}}</td>
+		<td><a href="/run/cmd?id={{$k}}" target="_blank" onclick="return confirm('Do you really run this script?');">{{$v.Text}}</td>
 		<td><a href="{{$v.Url}}">Download</td>
 		{{with $v.LastRunTime}}
 		<td>{{.}}</td>
