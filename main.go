@@ -4,6 +4,7 @@ import (
 	//	"code.google.com/p/go.net/websocket"
 	"flag"
 	"fmt"
+	"github.com/jijinggang/goutil"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -49,14 +50,14 @@ func exec_cmd(id int, w io.Writer) {
 			return
 		}
 		strCmd = cmdCfg.Script + ".tmp" + strconv.Itoa(id) + ".bat"
-		WriteStringFile(strCmd, "@echo off \r\n chcp 65001 \r\n"+string(content))
+		goutil.WriteStringFile(strCmd, "@echo off \r\n chcp 65001 \r\n"+string(content))
 		defer os.Remove(strCmd)
 	}
 	cmd = exec.Command(strCmd)
 	cmd.Env = os.Environ()
 	cmd.Stdout = w
 
-	path := GetPath(cmdCfg.Script)
+	path := goutil.GetPath(cmdCfg.Script)
 	cmd.Dir = path
 
 	err := cmd.Start()
@@ -102,7 +103,7 @@ var port int
 
 func main() {
 	flag.Parse()
-	ParseJsonFile(&_config, "config.json")
+	goutil.ParseJsonFile(&_config, "config.json")
 	port = _config.Port
 	_html = strings.Replace(HTML_EXEC, "{port}", strconv.Itoa(port), -1)
 	http.HandleFunc("/run", showCmdListPage)
