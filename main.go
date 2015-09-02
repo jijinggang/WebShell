@@ -1,9 +1,9 @@
 package main
 
 import (
-	//	"code.google.com/p/go.net/websocket"
 	"flag"
 	"fmt"
+	"github.com/jijinggang/go-websocket"
 	"github.com/jijinggang/goutil"
 	"html/template"
 	"io"
@@ -23,18 +23,17 @@ func showCmdListPage(w http.ResponseWriter, req *http.Request) {
 	tmpl.Execute(w, _config.Cmds)
 }
 
-/*
 func showCmdResultInitPage(w http.ResponseWriter, req *http.Request) {
 	id := req.FormValue("id")
 	html := strings.Replace(_html, "{id}", id, -1)
 	io.WriteString(w, html)
-}*/
+}
 
 func writeString(w io.Writer, str string) {
 	w.Write([]byte(str))
 }
 
-func exec_cmd(id int, w io.Writer) {
+func exec_cmd(id int, w *websocket.Conn) {
 	cmdCfg := &_config.Cmds[id]
 	if cmdCfg.Running {
 		writeString(w, "The script is running, please waitting .......")
@@ -74,13 +73,16 @@ func exec_cmd(id int, w io.Writer) {
 
 }
 
-func execAndRefreshCmdResult(w http.ResponseWriter, req *http.Request) {
+func execAndRefreshCmdResult(ws *websocket.Conn) {
+	req := ws.Request()
 	id, _ := strconv.Atoi(req.FormValue("id"))
 	if id >= len(_config.Cmds) {
-		writeString(w, "Invalid Command.")
+		writeString(ws, "Invalid Command.")
 		return
 	}
-	exec_cmd(id, w)
+
+	//ws.SetWriteDeadline(time.Now().Add(20 * time.Second))
+	exec_cmd(id, ws)
 }
 
 type Cmd struct {
@@ -107,9 +109,8 @@ func main() {
 	port = _config.Port
 	_html = strings.Replace(HTML_EXEC, "{port}", strconv.Itoa(port), -1)
 	http.HandleFunc("/run", showCmdListPage)
-	//http.HandleFunc("/run/cmd", showCmdResultInitPage)
-	//http.Handle("/run/cmd", websocket.Handler(execAndRefreshCmdResult))
-	http.HandleFunc("/run/cmd", execAndRefreshCmdResult)
+	http.HandleFunc("/run/cmd", showCmdResultInitPage)
+	http.Handle("/run/exec", websocket.Handler(execAndRefreshCmdResult))
 	http.Handle("/", http.FileServer(http.Dir(_config.WWWRoot))) //use fileserver directly
 	fmt.Printf("http://localhost:%d/run\n", port)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
@@ -140,7 +141,7 @@ function init() {
 	//ws.send("ok");
    };
    ws.onmessage = function (e) {
-      div.innerText = div.innerText + e.data + "\n";
+      div.innerText = div.innerText + e.data;
    };
    ws.onclose = function (e) {
      // div.innerText = div.innerText + "closed";
